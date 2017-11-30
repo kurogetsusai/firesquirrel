@@ -233,6 +233,36 @@ function newProfile {
 	echo "$version" > "$DIR_PROFILES/$profileName/firefox-version"
 }
 
+function updateProfile {
+	version=$1
+	profileName=$2
+
+	# check if a profile with that name already exists
+	if [ ! -d "$DIR_PROFILES/$profileName" ]
+	then
+		echo "Profile \"$profileName\" doesn't exist, aborting."
+		exit
+	fi
+
+	# check current version
+	oldVersion=`cat "$DIR_PROFILES/$profileName/firefox-version"`
+	if [[ "$oldVersion" == "$version" ]]
+	then
+		echo "Profile \"$profileName\" already uses version $oldVersion, aborting."
+		exit
+	fi
+
+	# if there are no binaries of that version, extract them
+	if [ ! -d "$DIR_BINARIES/$version" ]
+	then
+		extractBinary "$version"
+	fi
+
+	# update profile version
+	echo "Updating profile \"$profileName\" from version $oldVersion to $version..."
+	echo "$version" > "$DIR_PROFILES/$profileName/firefox-version"
+}
+
 function runProfile {
 	profileName=$1
 
@@ -294,6 +324,17 @@ new|n)
 
 	newProfile "$PARAM_2" "$PARAM_3"
 	;;
+update|u)
+	if [ -z "$PARAM_2" ] || [ -z "$PARAM_3" ]
+	then
+		echo "Required parameters:"
+		echo "- new firefox version (see $APP_NAME list available)"
+		echo "- profile name"
+		exit
+	fi
+
+	updateProfile "$PARAM_2" "$PARAM_3"
+	;;
 run|r)
 	if [ -z "$PARAM_2" ]
 	then
@@ -310,5 +351,6 @@ run|r)
 	echo "- list"
 	echo "- new"
 	echo "- run"
+	echo "- update"
 	;;
 esac
