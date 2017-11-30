@@ -11,6 +11,7 @@ PARAM_3=$3
 DIR_HERE=`pwd`
 DIR_DATA=$DIR_HERE/data
 DIR_BINARIES=$DIR_DATA/binaries
+DIR_MODS=$DIR_DATA/mods
 DIR_PACKAGES=$DIR_DATA/packages
 DIR_PROFILES=$DIR_DATA/profiles
 DIR_TMP=$DIR_DATA/tmp
@@ -18,6 +19,7 @@ DIR_TMP=$DIR_DATA/tmp
 # create missing folders
 mkdir -p "$DIR_DATA"
 mkdir -p "$DIR_BINARIES"
+mkdir -p "$DIR_MODS"
 mkdir -p "$DIR_PACKAGES"
 mkdir -p "$DIR_PROFILES"
 mkdir -p "$DIR_TMP"
@@ -102,6 +104,28 @@ function extractBinary {
 	mv "firefox" "$DIR_BINARIES/$version"
 
 	cd "$DIR_HERE"
+
+	runMod postExtractBinary "$version" "$packageName"
+}
+
+function runMod {
+	modName=$1
+	param1=$2
+	param2=$3
+	param3=$4
+
+	if [ -x "$DIR_MODS/$modName.sh" ]
+	then
+		echo "Executing mods..."
+		DIR_HERE="$DIR_HERE" \
+		DIR_DATA="$DIR_DATA" \
+		DIR_BINARIES="$DIR_BINARIES" \
+		DIR_MODS="$DIR_MODS" \
+		DIR_PACKAGES="$DIR_PACKAGES" \
+		DIR_PROFILES="$DIR_PROFILES" \
+		DIR_TMP="$DIR_TMP" \
+		"$DIR_MODS/$modName.sh" "$param1" "$param2" "$param3"
+	fi
 }
 
 # user actions
@@ -235,6 +259,8 @@ function newProfile {
 	echo "Creating profile \"$profileName\"..."
 	mkdir "$DIR_PROFILES/$profileName"
 	echo "$version" > "$DIR_PROFILES/$profileName/firefox-version"
+
+	runMod postNewProfile "$version" "$profileName"
 
 	echo "Profile \"$profileName\" created."
 }
