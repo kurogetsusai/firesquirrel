@@ -165,6 +165,7 @@ function downloadVersion {
 	version=$1
 
 	cd "$DIR_TMP"
+
 	if [[ "$version" == "nightly" ]]
 	then
 		echo "Downloading latest firefox nightly package..."
@@ -208,7 +209,9 @@ function downloadVersion {
 			echo "Package firefox-$version.tar.bz2 downloaded."
 		fi
 	fi
+
 	cd "$DIR_HERE"
+	echo "Firefox $version downloaded."
 }
 
 function newProfile {
@@ -229,8 +232,11 @@ function newProfile {
 	fi
 
 	# create a new profile
+	echo "Creating profile \"$profileName\"..."
 	mkdir "$DIR_PROFILES/$profileName"
 	echo "$version" > "$DIR_PROFILES/$profileName/firefox-version"
+
+	echo "Profile \"$profileName\" created."
 }
 
 function updateProfile {
@@ -261,6 +267,8 @@ function updateProfile {
 	# update profile version
 	echo "Updating profile \"$profileName\" from version $oldVersion to $version..."
 	echo "$version" > "$DIR_PROFILES/$profileName/firefox-version"
+
+	echo "Profile \"$profileName\" updated."
 }
 
 function runProfile {
