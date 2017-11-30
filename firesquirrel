@@ -1,0 +1,309 @@
+#!/bin/bash
+
+NEW_LINE="
+"
+APP_NAME=$0
+PARAM_1=$1
+PARAM_2=$2
+PARAM_3=$3
+
+# paths
+DIR_HERE=`pwd`
+DIR_DATA=$DIR_HERE/data
+DIR_BINARIES=$DIR_DATA/binaries
+DIR_PACKAGES=$DIR_DATA/packages
+DIR_PROFILES=$DIR_DATA/profiles
+DIR_TMP=$DIR_DATA/tmp
+
+# create missing folders
+mkdir -p "$DIR_DATA"
+mkdir -p "$DIR_BINARIES"
+mkdir -p "$DIR_PACKAGES"
+mkdir -p "$DIR_PROFILES"
+mkdir -p "$DIR_TMP"
+
+# utils functions
+function getFileNameWithoutExt {
+	fileName=$1
+
+	fileNameWithoutExt=`echo "$fileName" |
+		rev |
+		cut -d'.' -f3- |
+		rev`
+
+	echo "$fileNameWithoutExt"
+}
+
+function getPackageVersion {
+	fileName=$1
+
+	fileNameWithoutExt=`getFileNameWithoutExt "$fileName"`
+	version=`echo "$fileNameWithoutExt" |
+		cut -d'-' -f2`
+
+	if [ "$version" == 'firefox' ]
+	then
+		version=`echo "$fileNameWithoutExt" |
+			cut -d'-' -f3 |
+			rev |
+			cut -d'.' -f2- |
+			rev`
+		buildId=`echo "$fileNameWithoutExt" |
+			cut -d'-' -f1`
+
+		echo "$version-$buildId (nightly)"
+	else
+		echo "$version"
+	fi
+}
+
+function getPackageVersions {
+	packageList=$1
+
+	while read -r fileName
+	do
+		packageVersion=`getPackageVersion "$fileName"`
+		echo "$packageVersion"
+	done <<< "$packageList"
+}
+
+function getPackageName {
+	fullVersion=$1
+
+	buildId=`echo "$fullVersion" |
+		cut -d'-' -f2`
+	version=`echo "$fullVersion" |
+		cut -d'-' -f1`
+
+	if [ "$buildId" == "$fullVersion" ]
+	then
+		echo "firefox-$version.tar.bz2"
+	else
+		echo "$buildId-firefox-$version.en-US.linux-x86_64.tar.bz2"
+	fi
+}
+
+function getProfileVersion {
+	profileName=$1
+
+	version=`cat "$DIR_PROFILES/$profileName/firefox-version"`
+
+	echo "$version"
+}
+
+# user actions
+function listAvailable {
+	echo "Checking Mozilla's server..."
+	curl 'https://ftp.mozilla.org/pub/firefox/releases/' 2>/dev/null |
+		grep '<a href="/pub/firefox/releases/' |
+		cut -d'>' -f3 |
+		cut -d'/' -f1 |
+		sort -g
+	echo "nightly"
+}
+
+function listBinaries {
+	binaryList=`ls "$DIR_BINARIES"`
+
+	if [ -z "$binaryList" ]
+	then
+		echo "(no binaries here)"
+		exit
+	fi
+
+	while read -r version
+	do
+		echo "$version"
+	done <<< "$binaryList"
+}
+
+function listDownloaded {
+	packageList=`ls "$DIR_PACKAGES"`
+
+	if [ -z "$packageList" ]
+	then
+		echo "(no download packages here)"
+		exit
+	fi
+
+	packageVersions=`getPackageVersions "$packageList" |
+		sort`
+
+	echo "$packageVersions"
+}
+
+function listProfiles {
+	profileList=`ls "$DIR_PROFILES"`
+
+	if [ -z "$profileList" ]
+	then
+		echo "(no profiles here)"
+		exit
+	fi
+
+	while read -r profileName
+	do
+		version=`getProfileVersion "$profileName"`
+		echo "$profileName ($version)"
+	done <<< "$profileList"
+}
+
+function downloadVersion {
+	version=$1
+
+	cd "$DIR_TMP"
+	if [[ "$version" == "nightly" ]]
+	then
+		echo "Downloading latest firefox nightly package..."
+		oldList=`ls`
+
+		# download
+		wget --trust-server-names "https://download.mozilla.org/?product=firefox-nightly-latest-ssl&os=linux64&lang=en-US"
+
+		newList=`ls`
+
+		# rename
+		list="$oldList$NEW_LINE$newList"
+		fileName=`echo "$list" |
+			sort |
+			uniq -u |
+			tail -n1`
+		fileNameWithoutExt=`getFileNameWithoutExt "$fileName"`
+		buildId=`curl "https://download-installer.cdn.mozilla.net/pub/firefox/nightly/latest-mozilla-central/${fileNameWithoutExt}_info.txt" 2>/dev/null |
+			cut -d'=' -f2`
+		newFileName="$buildId-$fileName"
+
+		mv "$fileName" "$newFileName"
+
+		# check if it already exists (can't know it before we download the package...)
+		if [ -f "$DIR_PACKAGES/$newFileName" ]
+		then
+			rm "$newFileName"
+			echo "File already exists, aborting."
+		else
+			mv "$newFileName" "$DIR_PACKAGES/"
+			echo "Package $newFileName downloaded."
+		fi
+	else
+		if [ -f "$DIR_PACKAGES/firefox-$version.tar.bz2" ]
+		then
+			echo "File already exists, aborting."
+		else
+			echo "Downloading package firefox-$version.tar.bz2..."
+			wget "https://ftp.mozilla.org/pub/firefox/releases/$version/linux-x86_64/en-US/firefox-$version.tar.bz2"
+			mv "firefox-$version.tar.bz2" "$DIR_PACKAGES/"
+			echo "Package firefox-$version.tar.bz2 downloaded."
+		fi
+	fi
+	cd "$DIR_HERE"
+}
+
+function newProfile {
+	version=$1
+	profileName=$2
+
+	# check if a profile with that name already exists
+	if [ -d "$DIR_PROFILES/$profileName" ]
+	then
+		echo "Profile \"$profileName\" already exists, aborting."
+		exit
+	fi
+
+	# if there are no binaries of that version, extract them
+	if [ ! -d "$DIR_BINARIES/$version" ]
+	then
+		echo "Extracting Firefox $version..."
+		cd "$DIR_TMP"
+
+		packageName=`getPackageName "$version"`
+		tar xvf "$DIR_PACKAGES/$packageName"
+
+		mv "firefox" "$DIR_BINARIES/$version"
+
+		cd "$DIR_HERE"
+	fi
+
+	# create a new profile
+	mkdir "$DIR_PROFILES/$profileName"
+	echo "$version" > "$DIR_PROFILES/$profileName/firefox-version"
+}
+
+function runProfile {
+	profileName=$1
+
+	if [ ! -d "$DIR_PROFILES/$profileName" ]
+	then
+		echo "Profile \"$profileName\" doesn't exist, aborting."
+		exit
+	fi
+
+	version=`getProfileVersion "$profileName"`
+
+	echo "Running profile \"$profileName\" using Firefox $version..."
+	"$DIR_BINARIES/$version/firefox" --new-instance --profile "$DIR_PROFILES/$profileName"
+}
+
+# user input
+case $PARAM_1 in
+list|l)
+	case $PARAM_2 in
+	available|a)
+		listAvailable
+		;;
+	binaries|b)
+		listBinaries
+		;;
+	downloaded|d)
+		listDownloaded
+		;;
+	profiles|p)
+		listProfiles
+		;;
+	*)
+		echo "Options:"
+		echo "- available"
+		echo "- binaries"
+		echo "- downloaded"
+		echo "- profiles"
+		;;
+	esac
+	;;
+download|d)
+	if [ -z "$PARAM_2" ]
+	then
+		echo "Required parameter:"
+		echo "- firefox version (see $APP_NAME list available)"
+		exit
+	fi
+
+	downloadVersion "$PARAM_2"
+	;;
+new|n)
+	if [ -z "$PARAM_2" ] || [ -z "$PARAM_3" ]
+	then
+		echo "Required parameters:"
+		echo "- firefox version (see $APP_NAME list available)"
+		echo "- new profile name"
+		exit
+	fi
+
+	newProfile "$PARAM_2" "$PARAM_3"
+	;;
+run|r)
+	if [ -z "$PARAM_2" ]
+	then
+		echo "Required parameter:"
+		echo "- profile name version (see $APP_NAME list profiles)"
+		exit
+	fi
+
+	runProfile "$PARAM_2"
+	;;
+*)
+	echo "Options:"
+	echo "- download"
+	echo "- list"
+	echo "- new"
+	echo "- run"
+	;;
+esac
