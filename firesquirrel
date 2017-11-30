@@ -91,6 +91,19 @@ function getProfileVersion {
 	echo "$version"
 }
 
+function extractBinary {
+	version=$1
+
+	echo "Extracting Firefox $version..."
+	cd "$DIR_TMP"
+
+	packageName=`getPackageName "$version"`
+	tar xvf "$DIR_PACKAGES/$packageName"
+	mv "firefox" "$DIR_BINARIES/$version"
+
+	cd "$DIR_HERE"
+}
+
 # user actions
 function listAvailable {
 	echo "Checking Mozilla's server..."
@@ -212,15 +225,7 @@ function newProfile {
 	# if there are no binaries of that version, extract them
 	if [ ! -d "$DIR_BINARIES/$version" ]
 	then
-		echo "Extracting Firefox $version..."
-		cd "$DIR_TMP"
-
-		packageName=`getPackageName "$version"`
-		tar xvf "$DIR_PACKAGES/$packageName"
-
-		mv "firefox" "$DIR_BINARIES/$version"
-
-		cd "$DIR_HERE"
+		extractBinary "$version"
 	fi
 
 	# create a new profile
