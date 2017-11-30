@@ -1,21 +1,21 @@
 # Firesquirrel
 
-Firesquirrel is a version / profile manager for Firefox (Linux only). You can
-easily download a specific version of Firefox and, extract it and create
-profiles using it. You can use multiple Firefox profiles using many Firefox
-versions at the same time. They are run in a semi-portable mode, the binaries
-and their profiles are isolated, but $HOME is not, so it still uses your real
-~/.cache, ~/.config, ~/.local etc to allow it to work properly with iBus, GVFS
-and other tools.
+Firesquirrel is a version / profile manager for Firefox (Linux only). It can
+easily download a specific version of Firefox, extract it and create profiles
+using it. You can use multiple Firefox profiles using many Firefox versions at
+the same time. They run in a semi-portable mode, the binaries and their profiles
+are isolated, but $HOME is not, so it still uses your real `~/.cache`,
+`~/.config`, `~/.local` etc to allow it to work properly with iBus, GVFS and
+other tools.
 
-When you run it, it creates a `data` folder in the same folder, the data
+When you run it, it creates a `data` folder in the current directory, the data
 structure looks like this:
 
 - data
 	- binaries
-		- (extracted Firefox archives, every used version in its own folder)
+		- (folders with Firefox binaries extracted from the tarballs)
 	- packages
-		- (.tar.bz2 files downloaded from Mozilla's servers)
+		- (tarballs downloaded from Mozilla's servers)
 	- profiles
 		- (folders with all your Firefox profiles)
 	- tmp
