@@ -3,6 +3,16 @@
 NEW_LINE="
 "
 APP_NAME=$0
+THEME=
+
+case $1 in
+--theme)
+	THEME=$2
+	shift
+	shift
+	;;
+esac
+
 PARAM_1=$1
 PARAM_2=$2
 PARAM_3=$3
@@ -309,7 +319,13 @@ function runProfile {
 	version=`getProfileVersion "$profileName"`
 
 	echo "Running profile \"$profileName\" using Firefox $version..."
-	"$DIR_BINARIES/$version/firefox" --new-instance --profile "$DIR_PROFILES/$profileName"
+
+	if [ -z $THEME ]
+	then
+		"$DIR_BINARIES/$version/firefox" --new-instance --profile "$DIR_PROFILES/$profileName"
+	else
+		GTK_THEME=$THEME "$DIR_BINARIES/$version/firefox" --new-instance --profile "$DIR_PROFILES/$profileName"
+	fi
 }
 
 # user input
